@@ -95,7 +95,7 @@ void ota_task(void *arg)
             recv_len += item_size;
             vRingbufferReturnItem(s_ringbuf, (void *)data);
 
-            if (recv_len >= esp_ble_ota_get_fw_length()) {
+            if (recv_len >= /*esp_ble_ota_get_fw_length()*/100) {
                 xSemaphoreGive(notify_sem);
                 break;
             }
