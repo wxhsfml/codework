@@ -6,8 +6,10 @@
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "ble_ota.h"
 
 static const char *TAG = "esp32dev";
+/*
 esp_netif_t *sta_netif;
 esp_netif_t *ap_netif;
 
@@ -17,10 +19,11 @@ static void event_handler(void* arg,esp_event_base_t event_base,int32_t event_id
         ESP_ERROR_CHECK(esp_netif_napt_enable(ap_netif));
     }
 }
-
+*/
 void app_main(void)
 {
     nvs_flash_init();
+    /*
     esp_event_loop_create_default();
     esp_event_handler_instance_register(IP_EVENT,IP_EVENT_STA_GOT_IP,&event_handler,NULL,NULL);
     esp_netif_init();
@@ -51,4 +54,8 @@ void app_main(void)
     esp_wifi_start();
     ESP_ERROR_CHECK(esp_wifi_connect());
     ESP_LOGI(TAG,"wifi apsta 启动成功");
+    */
+    ble_ota_init();
+    ble_ota_gatt_create();
+    ESP_LOGI(TAG,"ble ota服务启动成功...");
 }

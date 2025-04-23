@@ -1,5 +1,6 @@
 #include <string.h>
 #include "ble_ota.h"
+#include "ble_ota_gatt.h"
 #include "freertos/ringbuf.h"
 #include "freertos/semphr.h"
 #include "esp_ota_ops.h"
@@ -31,6 +32,7 @@ size_t write_to_ringbuf(const uint8_t *data, size_t size)
         return 0;
     }
 }
+
 void ota_task(void *arg)
 {
     esp_partition_t *partition_ptr = NULL;
@@ -95,7 +97,7 @@ void ota_task(void *arg)
             recv_len += item_size;
             vRingbufferReturnItem(s_ringbuf, (void *)data);
 
-            if (recv_len >= /*esp_ble_ota_get_fw_length()*/100) {
+            if (recv_len >= esp_ble_ota_get_fw_length()) {
                 xSemaphoreGive(notify_sem);
                 break;
             }
@@ -119,6 +121,7 @@ OTA_ERROR:
     ESP_LOGE(TAG, "OTA failed");
     vTaskDelete(NULL);
 }
+
 void ota_recv_fw_cb(uint8_t *buf, uint32_t length)
 {
     write_to_ringbuf(buf, length);
@@ -128,4 +131,39 @@ static void ota_task_init(void)
 {
     xTaskCreate(&ota_task, "ota_task", OTA_TASK_SIZE, NULL, 5, NULL);
     return;
+}
+
+void ble_ota_init(void){
+    esp_err_t ret;
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+    ret = esp_bt_controller_init(&bt_cfg);
+    if (ret) {
+        ESP_LOGE(TAG, "%s init controller failed: %s\n", __func__, esp_err_to_name(ret));
+        return;
+    }
+    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    if (ret) {
+        ESP_LOGE(TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
+        return;
+    }
+}
+
+void ble_ota_gatt_create(void){
+    esp_err_t ret;
+
+    if (!ble_ota_ringbuf_init(OTA_RINGBUF_SIZE)) {
+        ESP_LOGE(TAG, "%s init ringbuf fail", __func__);
+        return;
+    }
+
+    ret = esp_ble_ota_host_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "%s initialize ble host fail: %s\n", __func__, esp_err_to_name(ret));
+        return;
+    }
+
+    esp_ble_ota_recv_fw_data_callback(ota_recv_fw_cb);
+    ota_task_init();
 }
