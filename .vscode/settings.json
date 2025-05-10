@@ -2,5 +2,9 @@
     "idf.adapterTargetName": "esp32s3",
     "idf.openOcdConfigs": [
         "board/esp32s3-builtin.cfg"
-    ]
+    ],
+    "files.associations": {
+        "i2c.h": "c",
+        "lvgl.h": "c"
+    }
 }

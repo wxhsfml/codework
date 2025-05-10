@@ -7,6 +7,10 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "ble_ota.h"
+#include "ble_ota_partition_test.h"
+#include "driver/gpio.h"
+#include "lv_conf.h"
+#include "lvgl_helpers.h"
 
 static const char *TAG = "esp32dev";
 /*
@@ -20,6 +24,21 @@ static void event_handler(void* arg,esp_event_base_t event_base,int32_t event_id
     }
 }
 */
+void tick_task(void* arg){
+    while(1){
+        vTaskDelay(pdMS_TO_TICKS(5));
+        lv_tick_inc(5);
+    }
+}
+
+void lv_timer_handler_task(void* arg){
+    while(1){
+        uint32_t time_till_next = lv_timer_handler();
+        if(time_till_next == LV_NO_TIMER_READY) time_till_next = 5;
+        vTaskDelay(pdMS_TO_TICKS(time_till_next));
+    }
+}
+
 void app_main(void)
 {
     nvs_flash_init();
@@ -53,9 +72,42 @@ void app_main(void)
     esp_wifi_set_config(WIFI_IF_AP,&apcfg);
     esp_wifi_start();
     ESP_ERROR_CHECK(esp_wifi_connect());
-    ESP_LOGI(TAG,"wifi apsta 启动成功");
-    */
-    ble_ota_init();
-    ble_ota_gatt_create();
-    ESP_LOGI(TAG,"ble ota服务启动成功...");
+    ESP_LOGI(TAG,"wifi apsta 启动成功");*/
+    partition_test();
+    gpio_change_partition();
+    lv_init();
+    lvgl_driver_init();
+    xTaskCreate(tick_task,"tick_task",16,NULL,3,NULL);
+    xTaskCreate(lv_timer_handler_task,"lv_timer_handler_task",64,NULL,3,NULL);
+    static lv_disp_draw_buf_t draw_buf;
+    static lv_color_t buf1[2048];
+    lv_disp_draw_buf_init(&draw_buf, buf1, NULL,2048);
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.flush_cb = st7735s_flush;
+    disp_drv.draw_buf = &draw_buf;
+    disp_drv.hor_res = 128;
+    disp_drv.ver_res = 160;
+    lv_disp_drv_register(&disp_drv);
+    
+    lv_obj_t *label = lv_label_create(lv_scr_act());
+    lv_label_set_text(label, "Hello World!");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << GPIO_NUM_35),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+    while(1){
+        ESP_LOGI(TAG,"set led on");
+        gpio_set_level(GPIO_NUM_35,1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG,"set led off");
+        gpio_set_level(GPIO_NUM_35,0);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
